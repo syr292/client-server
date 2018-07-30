@@ -72,12 +72,14 @@ public:
 	
 private:
 	bool createTree();
+	bool sendTree(std::string& serialized);
+
 	bool processVrblValues();
 	bool getResult();
 
 	void closeSocket();
 
-	int recvData(SOCKET s, char* buf,int len);
+	bool recvData(SOCKET s, std::string& buf);
 
 	void setNextState(State* state);
 

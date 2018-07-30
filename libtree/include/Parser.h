@@ -31,13 +31,13 @@ private:
 
 	std::string mError;
 
+	bool checkSanity();
+	
 	int getToken();
 	int getTokenPriority();
 	int getNextToken();
 	
 	bool checkVariableValue(std::string& str);
-
-	ExprAST* Error(const char *Str);
 	
 	ExprAST* parseExpression();
 	ExprAST* parseIdentifierExpr();

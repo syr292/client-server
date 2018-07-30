@@ -123,28 +123,23 @@ bool Client::createTree()
 	{
 		std::string serialized;
 		mTree->serialize(serialized);
-		if(send(mSocket, serialized.c_str(), serialized.length(), 0) == SOCKET_ERROR)
+
+		if(!sendTree(serialized))
 		{
-			std::cout << "<< connection to server lost\n";
-			closeSocket();
 			return false;
 		}
 
-		char recvbuf[BUF_SIZE];
-		int nsize = recvData(mSocket, (char *)&recvbuf, sizeof(recvbuf));	 
-		if(nsize == -1)
+		std::string buffer;	 
+		if(!recvData(mSocket, buffer))
 		{
-			std::cout << "<< connection to server lost\n";
-			closeSocket();
 			return false;
 		}
-		std::string str(recvbuf, nsize);
-		if(str != "ok")
+		if(buffer != "ok")
 		{
 			if(mTree)
 				delete mTree;
 			mParser.initialize();
-			std::cout << "<<" + str + "\n";
+			std::cout << "<<" + buffer + "\n";
 			std::cout << "<< enter expression again\n";
 			return false;
 		}
@@ -172,6 +167,30 @@ bool Client::createTree()
 	}
 }
 
+bool Client::sendTree(std::string& serialized)
+{
+	std::string buf;
+	int i = 1;
+	buf = serialized.substr(0, BUF_SIZE);
+	while(1)
+	{
+		if(send(mSocket, buf.c_str(), buf.length(), 0) == SOCKET_ERROR)
+		{
+			std::cout << "<< connection to server lost\n";
+			closeSocket();
+			return false;
+		}
+		if(buf.length() < BUF_SIZE)
+		{
+			break;
+		}
+		buf = "";
+		buf = serialized.substr(i*BUF_SIZE, BUF_SIZE);
+		i++;
+	}
+	return true;
+}
+
 bool Client::processVrblValues()
 {
 	std::string variables;
@@ -184,18 +203,14 @@ bool Client::processVrblValues()
 			return false;
 		}
 		
-		char recvbuf[BUF_SIZE];
-		int nsize = recvData(mSocket, (char *)&recvbuf, sizeof(recvbuf)); 
-		if(nsize == -1)
+		std::string buffer;
+		if(!recvData(mSocket, buffer))
 		{
-			std::cout << "<< connection to server lost\n";
-			closeSocket();
 			return false;
 		}
-		std::string str(recvbuf, nsize);
-		if(str != "ok")
+		if(buffer != "ok")
 		{
-			std::cout << str << "\n";
+			std::cout << buffer << "\n";
 			return false;
 		}
 
@@ -213,18 +228,20 @@ bool Client::getResult()
 		return false;
 	}
 	
-	char recvbuf[BUF_SIZE];
-	int nsize = recvData(mSocket, (char *)&recvbuf, sizeof(recvbuf)); 
-	if(nsize == -1)
+	std::string buffer;
+	if(!recvData(mSocket, buffer))
 	{
-		std::cout << "<< connection to server lost\n";
-		closeSocket();
 		return false;
 	}
-	recvbuf[nsize] = '\0';
 
-	std::cout << "<< " << recvbuf << "\n";
+	std::cout << "<< " << buffer << "\n";
 	
+	if(buffer == "unable to count expression: not all variables values were sent to server")
+	{
+		std::cout << "<< for having result enter all variables correctly again\n";
+		return false;
+	}
+
 	delete mTree;
 	mParser.initialize();
 
@@ -238,27 +255,45 @@ void Client::closeSocket()
 	mSocket = 0;
 }
 
-int Client::recvData(SOCKET s, char* buf, int len)
+bool Client::recvData(SOCKET s, std::string& buf)
 {
-	int nsize = recv(mSocket, buf, len, 0);
+	char recvbuf[BUF_SIZE];
+	int nsize = recv(mSocket, (char *)&recvbuf, sizeof(recvbuf), 0);
 	if(nsize == SOCKET_ERROR)
-		return nsize;
+	{
+		std::cout << "<< connection to server lost\n";
+		closeSocket();
+		return false;
+	}
+	std::string strbuf(recvbuf, nsize);
+	buf = strbuf;
+	size_t pos = 0;
+	do
+	{
+		pos = buf.find("ping");
 
-	std::string data(buf, nsize);
-	size_t pos = data.find("ping");
-	if(pos == -1)
-		return nsize;
-	
-	if(nsize == 4)
+		if(pos == -1)
+		{	
+			break;
+		}
+
+		buf = buf.substr(pos + 4).c_str();
+
+	}while(pos != -1);
+
+	if(buf.length() == 0)
 	{
-		nsize = recv(mSocket, buf, len, 0);
-		return nsize;
+		nsize = recv(mSocket, (char *)&recvbuf, sizeof(recvbuf), 0);
+		if(nsize == SOCKET_ERROR)
+		{
+			std::cout << "<< connection to server lost\n";
+			closeSocket();
+			return false;
+		}
+		std::string strbuf(recvbuf, nsize);
+		buf = strbuf;
 	}
-	else
-	{
-		strcpy_s(buf, nsize-4, data.substr(pos+4).c_str());
-			return nsize-4;
-	}
+	return true;
 }
 
 void Client::setNextState(State* state)
@@ -273,6 +308,7 @@ RecvExpressionState::RecvExpressionState(Client* client) :
 
 bool RecvExpressionState::getData()
 {
+	std::cout << "<< enter expression\n";
 	std::cout << ">> ";
 	if(mClient->createTree())
 	{
@@ -336,6 +372,10 @@ bool RecvResultState::getResult()
 	if(mClient->getResult())
 	{
 		mClient->setNextState(mClient->mRecvExpression);
+	}
+	else
+	{
+		mClient->setNextState(mClient->mRecvVrblValues);
 	}
 	return true;
 }

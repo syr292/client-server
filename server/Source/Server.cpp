@@ -55,7 +55,7 @@ bool Server::initialize()
 
 void Server::start()
 {
-	std::cout << "Waiting for connections\n";
+	//std::cout << "Waiting for connections\n";
  
 	listen(mListenSocket, SOMAXCONN); 
  
@@ -119,12 +119,7 @@ bool ClientSession::processData()
 	char recvbuf[BUF_SIZE];
 	while ((nsize = recv(mClientSocket, (char *) &recvbuf, sizeof(recvbuf), 0)) != SOCKET_ERROR)
 	{
-		recvbuf[nsize] = 0;
-		
-		std::string data(recvbuf);
-		std::string message = "received: ";
-		message += data;
-		log(message);
+		std::string data(recvbuf, nsize);
 		if (data == "exit")
 		{
 			return false;
@@ -156,6 +151,7 @@ bool ClientSession::processData()
 				log("is unreachable");
 				return false;
 			}
+			mNoData = 0;
 		}
 		
 	}
@@ -169,23 +165,54 @@ bool ClientSession::processData()
 
 bool ClientSession::createTree(const std::string& data)
 {
-	bool result = false;
 	std::string response = "unable to allocate memory for tree";
+	bool result = false;
 	mTree = Parser::createEmptyTree();
-	if(mTree)
+	if(!mTree)
 	{
-		mTree->deserialize(data);
+		log(response);
+		send(mClientSocket, response.c_str(), response.length(), 0);
+		return false;
+	}
+
+	//std::string buf = data;
+	std::string buf;
+	buf += data;
+	while(1)
+	{
+		if(!mTree->checkData(buf))
+		{
+			char recvbuf[BUF_SIZE];
+			int nsize = recv(mClientSocket, (char *) &recvbuf, sizeof(recvbuf), 0);
+			if(nsize != -1)
+			{		
+				std::string strb(recvbuf, nsize);
+				buf += strb;
+			}
+		}
+		else
+		{
+			break;
+		}
+	}
+   
+	log("received: " + buf);
+	if(mTree->deserialize(buf))
+	{
 		log("tree was created");
 		response = "ok";
 		result = true;
 	}
 	else
 	{
+		mTree->getError(response);
 		log(response);
+		delete mTree;
+		result = false;
 	}
 	
 	send(mClientSocket, response.c_str(), response.length(), 0);
-	return true;
+	return result;
 }
 
 bool ClientSession::processVrblValues(const std::string& data)
@@ -193,11 +220,20 @@ bool ClientSession::processVrblValues(const std::string& data)
 	bool result = false;
 	std::string response = "error in variable values";
 	
-	if(Parser::parseVariableValues(data, *mTree))
+	if(data == "no arguments")
 	{
-		log("variable values were successfully parsed");
+		log("no variable values were entered");
 		response = "ok";
 		result = true;
+	}
+	else
+	{
+		if(Parser::parseVariableValues(data, *mTree))
+		{
+			log("variable values were successfully parsed");
+			response = "ok";
+			result = true;
+		}
 	}
 
 	send(mClientSocket, response.c_str(), response.length(), 0);
@@ -214,7 +250,8 @@ bool ClientSession::sendResult()
 		if(value == -1)
 		{
 			response = "unable to count expression: not all variables values were sent to server";
-			log(response);
+			send(mClientSocket, response.c_str(), response.length(), 0);
+			return false;
 		}
 		else
 		{
@@ -309,6 +346,10 @@ bool SendResultState::getResult(const std::string& data)
 	if(mSession->sendResult())
 	{
 		mSession->setNextState(mSession->mRecvExpression);
+	}
+	else
+	{
+		mSession->setNextState(mSession->mRecvVrblValues);
 	}
 	return true;
 }

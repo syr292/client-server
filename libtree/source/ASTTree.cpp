@@ -37,19 +37,14 @@ void ASTTreeVisitor::visit(VariableExprAST &ref) {
 
 long long ASTTreeVisitor::doOperation(char oper)
 {
-	long long i = 4096000000;
 	switch(oper)
 	{
 	case '+':
 		return mLeftVal + mRightVal;
 	case '-':
 		return mLeftVal - mRightVal;
-		//break;
 	case '*':
-		std::cout << i << "\n";
-		i = mLeftVal * mRightVal;
-		std::cout << i << "\n";
-		return i;
+		return mLeftVal * mRightVal;
 	case '/':
 		return mLeftVal / mRightVal;
 	default:
@@ -135,7 +130,8 @@ char BinaryExprAST::getOperator()
 	return mOperator;
 }
 
-void BinaryExprAST::accept(Visitor& v) {
+void BinaryExprAST::accept(Visitor& v)
+{
 	v.visit(*this);
 }
 
@@ -151,7 +147,8 @@ ASTTree::ASTTree() :
 ASTTree::ASTTree(ExprAST* node) :
 	mRoot(node),
 	mSerialized(),
-	mCounter(0)
+	mCounter(0),
+	mLastError()
 {
 	mCountVisitor = new ASTTreeVisitor(this);
 	mSerializeVisitor = new SerializeVisitor(this);
@@ -183,15 +180,32 @@ long long ASTTree::count()
 void ASTTree::serialize(std::string& serialized)
 {
 	serialize(mRoot);
+	mSerialized += ";";
 	serialized = mSerialized;
 }
 
-void ASTTree::deserialize(const std::string& serialized)
+bool ASTTree::deserialize(const std::string& serialized)
 {
 	mSerialized = serialized;
+	int in = mSerialized.length();
 	deserialize(mRoot);
+	return true;
+}
+
+bool ASTTree::checkData(const std::string& data)
+{
+	if(data.find(";") == -1)
+	{
+		return false;
+	}
+	return true;
 }
 	
+void ASTTree::getError(std::string& error)
+{
+	error = mLastError;
+}
+
 void ASTTree::serialize(ExprAST* node)
 {
 	if(node != NULL)

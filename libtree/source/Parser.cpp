@@ -11,7 +11,7 @@
 
 Parser::Parser() :
 	mLastChar(' '),
-	mNumVal(0),
+	mNumVal(-1),
 	mVariableStr(),
 	mCurrentToken(0)
 {
@@ -27,10 +27,14 @@ ASTTree* Parser::createTree()
 	if(mVariableStr == "exit")
 		return NULL;
 	ExprAST* root = parseExpression();
-	if(!root)
+	if(!root || mError != "")
 	{
+		if(root)
+			delete root;
+
 		return NULL;
 	}
+
 	return new ASTTree(root);
 
 }
@@ -55,7 +59,7 @@ void Parser::initialize()
 		getline(std::cin, buf);
 	}
 	mLastChar = ' ';
-	mNumVal = 0;
+	mNumVal = -1;
 	mVariableStr = "";
 	mCurrentToken = 0;
 	mError = "";
@@ -139,7 +143,7 @@ bool Parser::checkVariableValue(std::string& str)
 
 	if(!isalpha(str[0]))
 	{
-		mError = "error: variable name should start with letter\n";
+		mError = "error: variable name should start with letter";
 		return false;
 	}
 
@@ -242,6 +246,16 @@ void Parser::getLastError(std::string& error)
 	error = mError;
 }
 
+bool Parser::checkSanity()
+{
+	if(mNumVal > -1 || mVariableStr != "")
+	{
+		mError = "error: after number or variable must be an operator or )";
+		return false;
+	}
+	return true;
+}
+
 int Parser::getToken() {
 	if (mLastChar == '\n')
 		return -1;
@@ -249,14 +263,25 @@ int Parser::getToken() {
 	while (isspace(mLastChar))
 		mLastChar = getchar();
 
-	if (isalpha(mLastChar)) {
+	if (isalpha(mLastChar)) 
+	{
+		if(!checkSanity())
+		{
+			return -1;
+		}
 		mVariableStr = mLastChar;
 		while (isalnum((mLastChar = getchar())))
 			mVariableStr += mLastChar;
 		return tokenIdentifier;
 	}
 
-	if (isdigit(mLastChar)) {
+	if (isdigit(mLastChar))
+	{
+		if(!checkSanity())
+		{
+			return -1;
+		}
+		
 		std::string NumStr;
 		int num = 0;
 		do {
@@ -275,6 +300,8 @@ int Parser::getToken() {
 	}
 
 	int ThisChar = mLastChar;
+	mNumVal = -1;
+	mVariableStr = "";
 	mLastChar = getchar();
 	return ThisChar;
 }
@@ -284,6 +311,11 @@ int Parser::getNextToken() {
 }
 
 int Parser::getTokenPriority() {
+	if(mCurrentToken == -1)
+	{
+		return tokenError;
+	}
+
 	if (!isascii(mCurrentToken))
 	{
 		mError = "error: not an ascii symbol";
@@ -299,21 +331,16 @@ int Parser::getTokenPriority() {
 	return tokenPriority;
 }
 
-ExprAST* Parser::Error(const char *Str)
-{
-	fprintf(stderr, "Error: %s\n", Str); return 0;
-}
-
 ExprAST* Parser::parseIdentifierExpr() {
 	std::string varName = mVariableStr;
-
 	getNextToken();
 	return new VariableExprAST(varName);
 }
 
 ExprAST* Parser::parseNumberExpr() {
+	int num = mNumVal;
 	getNextToken();
-	return new NumberExprAST(mNumVal);
+	return new NumberExprAST(num);
 }
 
 ExprAST* Parser::parseParenExpr() {
@@ -341,7 +368,11 @@ ExprAST* Parser::parsePrimary() {
 			return parseNumberExpr();
 		case '(':            
 			return parseParenExpr();
-		default: 
+		default:
+			if(mError == "")
+			{
+				mError = "error: incorrect symbol is entered";
+			}
 			return NULL;
 	}
 }

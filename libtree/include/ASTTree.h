@@ -107,8 +107,10 @@ public:
 
 	long long count();
 	void serialize(std::string& serialized);
-	void deserialize(const std::string& serialized);
-	
+	bool deserialize(const std::string& serialized);
+	bool checkData(const std::string& data);
+	void getError(std::string& error);
+
 private:
 	void deleteTree(ExprAST* node);
 
@@ -118,5 +120,7 @@ private:
 	void serialize(ExprAST* node);
 	void deserialize(ExprAST*& node);
 	void count(ExprAST* node);
+
+	std::string mLastError;
 };
 
