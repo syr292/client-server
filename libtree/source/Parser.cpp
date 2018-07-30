@@ -325,7 +325,10 @@ int Parser::getTokenPriority() {
 	int tokenPriority = mOperatorPriority[mCurrentToken];
 	if (tokenPriority <= 0) 
 	{
-		mError = "error: unknown operator";
+		if(mCurrentToken != ')')
+		{
+			mError = "error: unknown operator";
+		}
 		return tokenError;
 	}
 	return tokenPriority;
@@ -351,7 +354,7 @@ ExprAST* Parser::parseParenExpr() {
 
 	if (mCurrentToken != ')')
 	{
-		mError = "expected ')'";
+		mError = "error: expected ')'";
 		return NULL;
 	}
 

@@ -140,7 +140,6 @@ bool Client::createTree()
 				delete mTree;
 			mParser.initialize();
 			std::cout << "<<" + buffer + "\n";
-			std::cout << "<< enter expression again\n";
 			return false;
 		}
 		
@@ -160,7 +159,6 @@ bool Client::createTree()
 			std::string error;
 			mParser.getLastError(error);
 			std::cout << "<< " + error + "\n";
-			std::cout << "<< enter expression again\n";
 			mParser.initialize();
 		}
 		return false;
@@ -236,11 +234,11 @@ bool Client::getResult()
 
 	std::cout << "<< " << buffer << "\n";
 	
-	if(buffer == "unable to count expression: not all variables values were sent to server")
-	{
-		std::cout << "<< for having result enter all variables correctly again\n";
-		return false;
-	}
+	//if(buffer == "unable to count expression: not all variables values were sent to server")
+	//{
+	//	std::cout << "<< for having result enter all variables correctly again\n";
+	//	return false;
+	//}
 
 	delete mTree;
 	mParser.initialize();
@@ -373,9 +371,9 @@ bool RecvResultState::getResult()
 	{
 		mClient->setNextState(mClient->mRecvExpression);
 	}
-	else
-	{
-		mClient->setNextState(mClient->mRecvVrblValues);
-	}
+	//else
+	//{
+	//	mClient->setNextState(mClient->mRecvVrblValues);
+	//}
 	return true;
 }

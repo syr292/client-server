@@ -250,8 +250,8 @@ bool ClientSession::sendResult()
 		if(value == -1)
 		{
 			response = "unable to count expression: not all variables values were sent to server";
-			send(mClientSocket, response.c_str(), response.length(), 0);
-			return false;
+			//send(mClientSocket, response.c_str(), response.length(), 0);
+			//return false;
 		}
 		else
 		{
@@ -347,9 +347,9 @@ bool SendResultState::getResult(const std::string& data)
 	{
 		mSession->setNextState(mSession->mRecvExpression);
 	}
-	else
-	{
-		mSession->setNextState(mSession->mRecvVrblValues);
-	}
+	//else
+	//{
+	//	mSession->setNextState(mSession->mRecvVrblValues);
+	//}
 	return true;
 }
